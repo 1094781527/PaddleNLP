@@ -49,6 +49,7 @@ METRIC_CLASSES = {
     "mnli": Accuracy,
     "qnli": Accuracy,
     "rte": Accuracy,
+    "chnsenticorp": Accuracy,
 }
 
 MODEL_CLASSES = {
@@ -56,6 +57,7 @@ MODEL_CLASSES = {
     "electra": (ElectraForSequenceClassification, ElectraTokenizer),
     "ernie": (ErnieForSequenceClassification, ErnieTokenizer),
     "albert": (AlbertForSequenceClassification, AlbertTokenizer),
+    "ernie-gram": (ErnieGramForSequenceClassification, ErnieGramTokenizer),
 }
 
 
@@ -218,16 +220,10 @@ def convert_example(example,
         # `label_list == None` is for regression task
         label_dtype = "int64" if label_list else "float32"
         # Get the label
-        label = example['labels']
+        label = example['label']
         label = np.array([label], dtype=label_dtype)
     # Convert raw text to feature
-    if (int(is_test) + len(example)) == 2:
-        example = tokenizer(example['sentence'], max_seq_len=max_seq_length)
-    else:
-        example = tokenizer(
-            example['sentence1'],
-            text_pair=example['sentence2'],
-            max_seq_len=max_seq_length)
+    example = tokenizer(example['text'], max_seq_len=max_seq_length)
 
     if not is_test:
         return example['input_ids'], example['token_type_ids'], label
@@ -247,7 +243,7 @@ def do_train(args):
     args.model_type = args.model_type.lower()
     model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
 
-    train_ds = load_dataset('glue', args.task_name, splits="train")
+    train_ds = load_dataset('chnsenticorp', splits='train')
     tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path)
 
     trans_func = partial(
@@ -292,7 +288,7 @@ def do_train(args):
             num_workers=0,
             return_list=True)
     else:
-        dev_ds = load_dataset('glue', args.task_name, splits='dev')
+       dev_ds = load_dataset('chnsenticorp', splits='dev')
         dev_ds = dev_ds.map(trans_func, lazy=True)
         dev_batch_sampler = paddle.io.BatchSampler(
             dev_ds, batch_size=args.batch_size, shuffle=False)
